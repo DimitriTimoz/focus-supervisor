@@ -2,30 +2,6 @@
 
 On macos allow vscode to record screen to access to the window information.
 
-<think>
-Okay, let's tackle this user's needs. They want to build an application in a week that detects if someone is focused on their computer and tracks productive vs distracted time. The user mentioned they have some React experience, more with Vue/Nuxt, and a lot of Rust and Python. So I need to adjust the previous stack recommendation to better fit their existing skills.
-
-First, I should remember the original stack suggested Electron with React. But the user prefers Vue/Nuxt. Vue's ecosystem is solid, and since they know Nuxt, maybe Tauri would be a good fit. Tauri uses Rust, which they have experience with, and can pair with Vue for the frontend. That could make them more efficient.
-
-For tracking active windows and user activity, the previous answer mentioned Node.js modules, but since the user knows Rust, maybe Rust crates can replace those. Tauri allows backend logic in Rust, which would leverage their strength. Crates like 'active-win' and 'input-activity' in Rust could serve similar purposes to the Node.js modules suggested before.
-
-The webcam part is optional. If they keep that, perhaps using Python with OpenCV or MediaPipe, since they know Python. Rust might have some libraries, but Python's ecosystem is richer for quick integration. They could have a Python script handling webcam analysis and communicate with the Tauri app via IPC or HTTP.
-
-Database choice: SQLite is still a good fit, and Rust has great SQLite support with libraries like 'rusqlite', so that's manageable.
-
-UI: Since they know Vue/Nuxt better, using Vue with Tauri instead of React makes sense. Component libraries like Vuetify or Quasar can speed up development.
-
-Testing the solution on multiple OSes quickly might be a challenge with Tauri, but since Tauri is designed for cross-platform, it should be okay. They need to ensure Rust crates they pick are cross-platform.
-
-Deployment with Tauri is straightforward using their CLI tools. Packaging for different OS might require some setup, but the user has a week to handle that.
-
-Prioritizing features: The core features should be active window tracking, user inactivity detection, and time logging. Webcam can be an optional stretch goal. They can use Vue for the UI, Rust for the backend logic, and Python for webcam if time permits.
-
-Potential issues: If the Rust crates aren't cross-platform, they might need to find alternatives or write OS-specific code. Also, integrating Python with Tauri might need some IPC setup, which could take time but manageable given the user's Python and Rust skills.
-
-Overall, adjusting the stack to use Tauri+Vue+Rust plays to their strengths, uses their existing knowledge in Rust and Vue/Nuxt, while Python can handle parts where Rust might be less straightforward. This approach should help them build the app faster within the tight deadline.
-</think>
-
 D’accord, avec votre expérience en Rust, Python et Vue/Nuxt, on peut optimiser la stack pour tirer parti de vos forces. Voici une proposition **adaptée à vos compétences** :
 
 ---
