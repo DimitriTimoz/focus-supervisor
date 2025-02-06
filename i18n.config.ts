@@ -14,6 +14,11 @@ export default defineI18nConfig(() => ({
         week: "Week",
         month: "Month",
         all_periods: "All",
+        activity_dashboard: "Dashboard",
+        history: "Activity History",
+        on: "on",
+        next: "Next",
+        previous: "Previous",
       },
       fr: {
         welcome: 'Bienvenue',
@@ -27,6 +32,11 @@ export default defineI18nConfig(() => ({
         week: 'Semaine',
         month: 'Mois',
         all_periods: 'Tout',
+        activity_dashboard: 'Tableau de bord',
+        history: "Historique des Activités",
+        on: "sur",
+        next: "Suivant",
+        previous: "Précédent",
       }
     }
   }))
