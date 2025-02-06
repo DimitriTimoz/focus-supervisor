@@ -1,11 +1,17 @@
 // https://nuxt.com/docs/api/configuration/nuxt-config
+import tailwindcss from "@tailwindcss/vite";
+
 export default defineNuxtConfig({
   srcDir: 'src/',
   devtools: { enabled: true },
   ssr: false,
   compatibilityDate: "2025-02-06",
   telemetry: false,
+  css: ['~/assets/css/main.css'],
   devServer: { host: process.env.TAURI_DEV_HOST || 'localhost' },
+  modules: [
+    '@pinia/nuxt',
+  ],
   vite: {
     // Better support for Tauri CLI output
     clearScreen: false,
@@ -20,6 +26,8 @@ export default defineNuxtConfig({
     routeRules: {
       '/': { prerender: true }
     },
-  
+    plugins: [
+        tailwindcss(),
+    ],
   },
 })

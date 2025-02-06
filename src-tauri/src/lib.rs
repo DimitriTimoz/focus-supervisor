@@ -1,9 +1,29 @@
+pub mod tracker;
+
+#[derive(serde::Serialize)]
+struct FocusedWindow {
+  name: String,
+  title: String,
+}
+
+
 // Learn more about Tauri commands at https://tauri.app/develop/calling-rust/
 #[tauri::command]
-fn get_focused_window() -> String {
+fn get_focused_window() -> Option<FocusedWindow> {
     match x_win::get_active_window() {
-        Ok(window) => window.info.name,
-        Err(e) => e.to_string(),
+        Ok(window) => {
+            let name = window.info.name;
+            let title = window.title;
+            
+            if name.is_empty() {
+                return None;
+            }
+            Some(FocusedWindow {
+                name,
+                title,
+            })
+        },
+        Err(e) => None,
     }
 }
 
