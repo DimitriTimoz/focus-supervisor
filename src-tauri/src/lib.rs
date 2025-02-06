@@ -14,7 +14,7 @@ fn get_focused_window() -> Option<FocusedWindow> {
         Ok(window) => {
             let name = window.info.name;
             let title = window.title;
-            
+
             if name.is_empty() {
                 return None;
             }
@@ -23,7 +23,7 @@ fn get_focused_window() -> Option<FocusedWindow> {
                 title,
             })
         },
-        Err(e) => None,
+        Err(_) => None,
     }
 }
 
@@ -31,6 +31,7 @@ fn get_focused_window() -> Option<FocusedWindow> {
 pub fn run() {
     tauri::Builder::default()
         .plugin(tauri_plugin_opener::init())
+        .plugin(tauri_plugin_fs::init())
         .invoke_handler(tauri::generate_handler![get_focused_window])
         .run(tauri::generate_context!())
         .expect("error while running tauri application");
