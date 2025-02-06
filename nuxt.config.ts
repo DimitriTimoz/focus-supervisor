@@ -9,9 +9,15 @@ export default defineNuxtConfig({
   telemetry: false,
   css: ['~/assets/css/main.css'],
   devServer: { host: process.env.TAURI_DEV_HOST || 'localhost' },
-  modules: [
-    '@pinia/nuxt',
-  ],
+  modules: ['@pinia/nuxt', '@nuxtjs/i18n'],
+  i18n: {
+    locales: [
+      { code: 'en', language: 'en-US' },
+      { code: 'fr', language: 'fr-FR' }
+    ],
+    defaultLocale: 'en',
+    vueI18n: './i18n.config.ts',
+  },
   vite: {
     // Better support for Tauri CLI output
     clearScreen: false,

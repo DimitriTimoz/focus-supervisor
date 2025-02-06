@@ -6,7 +6,10 @@
 import { createApp } from 'vue';
 import { createPinia } from 'pinia';
 import { useActivityStore } from './stores/activity';
+import {  } from '@nuxtjs/i18n';
+
 import App from './App.vue';
+
 
 const app = createApp(App);
 const pinia = createPinia();
