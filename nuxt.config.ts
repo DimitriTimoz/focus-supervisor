@@ -19,7 +19,7 @@ export default defineNuxtConfig({
     vueI18n: './i18n.config.ts',
   },
   app: {
-    rootId: 'app', // Doit correspondre à l'élément dans index.html
+    rootId: 'app', 
     layoutTransition: { name: 'layout', mode: 'out-in' },
     pageTransition: { name: 'page', mode: 'out-in' }
   },

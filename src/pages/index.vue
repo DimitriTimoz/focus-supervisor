@@ -1,4 +1,11 @@
 <script setup lang="ts">
+import { onMounted } from 'vue';
+import { useActivityStore } from '../stores/activity';
+
+const activityStore = useActivityStore();
+onMounted(() => {
+  activityStore.loadRuns();
+});
 </script>
 
 <template>

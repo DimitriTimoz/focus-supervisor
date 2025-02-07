@@ -81,6 +81,45 @@ export const useActivityStore = defineStore('activity', {
       }
     },
 
+    // Ajout de la méthode loadRuns pour charger les runs depuis le fichier de stockage
+    async loadRuns() {
+      try {
+        const file = await open(RUNS_PATH, { read: true, baseDir: BaseDirectory.AppData });
+        const stat = await file.stat();
+        const fileLength = stat.size;
+        if (fileLength === 0) { // Si le fichier est vide
+          this.runs = [];
+          await file.close();
+          return;
+        }
+        const buf = new Uint8Array(fileLength);
+        await file.read(buf);
+        await file.close();
+        let data = new TextDecoder().decode(buf).trim();
+        // Supprimer le BOM s'il est présent
+        if(data.charCodeAt(0) === 0xFEFF) {
+          data = data.slice(1);
+        }
+        // Vérifier que le contenu commence par un crochet indiquant un tableau JSON
+        if (data[0] !== '[') {
+          console.error('Format invalide dans le fichier runs. Réinitialisation.');
+          this.runs = [];
+          await this.saveRuns();
+          return;
+        }
+        try {
+          this.runs = JSON.parse(data);
+        } catch (parseError) {
+          console.error('Erreur lors du parsing des runs:', parseError);
+          this.runs = [];
+          await this.saveRuns();
+        }
+      } catch (error) {
+        console.error('Erreur lors du chargement des runs:', error);
+        this.runs = [];
+      }
+    },
+
     initPersistentTracking() {
       if (!this.trackingInterval) {
         this.trackingInterval = setInterval(() => {

@@ -1,20 +1,51 @@
 <template>
-  <div class="min-h-screen flex flex-col items-center justify-center p-6">
-    <!-- Timer; remains in DOM but hidden after run is finished -->
-    <div v-show="runStarted && !runFinished">
-      <Timer @finish="finishRun" />
-    </div>
+  <!-- Timer centré -->
+  <div class="flex justify-center w-full max-w-5xl mb-6">
+    <Timer @finish="finishRun" />
+  </div>
 
-    <!-- Summary displayed when run finished -->
-    <div v-show="runFinished" class="w-full max-w-5xl p-6 bg-white rounded shadow">
+  <div class="min-h-screen flex flex-col items-center justify-center p-6">
+    <!-- Section : Filtrer l'historique persistant -->
+    <section class="w-full max-w-5xl p-6 bg-white rounded shadow mb-6">
+      <h2 class="text-xl font-bold mb-4">Historique des runs persistants</h2>
+      <ActivityDateFilter :currentFilter="runsDateFilter" @update:filter="runsDateFilter = $event" />
+      <ul class="mt-4">
+        <li v-for="run in filteredRunHistoryList" :key="run.date" class="border-b py-2">
+          Date: {{ new Date(run.date).toLocaleString() }} - 
+          Durée: {{ ((run.end - run.start)/1000).toFixed(0) }} s - 
+          Activités: {{ run.summary.activitiesCount }}
+        </li>
+      </ul>
+    </section>
+
+    <!-- Section: Sélection et détails du run -->
+    <section class="w-full max-w-5xl p-6 bg-white rounded shadow mb-6">
+      <h2 class="text-xl font-bold mb-4">Sélectionnez un run pour voir ses détails</h2>
+      <!-- Ajout du modificateur .number pour convertir la valeur en nombre -->
+      <select v-model.number="selectedRunDate" class="p-2 border rounded w-full">
+        <option disabled :value="null">-- Choisissez un run --</option>
+        <option v-for="run in filteredRunHistoryList" :key="run.date" :value="run.date">
+          {{ new Date(run.date).toLocaleString() }}
+        </option>
+      </select>
+    </section>
+
+    <!-- Section: Affichage des stats uniquement si le timer est terminé -->
+    <div v-if="!runStarted && displayedRun" class="w-full max-w-5xl p-6 bg-white rounded shadow">
       <ActivityStats 
-        :totalTrackedTime="summary.totalDuration" 
-        :totalActivities="summary.activitiesCount" 
-        :averageActivityDuration="summary.averageDuration" 
+        :totalTrackedTime="displayedRun.summary.totalDuration" 
+        :totalActivities="displayedRun.summary.activitiesCount" 
+        :averageActivityDuration="displayedRun.summary.averageDuration" 
       />
-      <ActivityCharts :barData="barData" :barOptions="barOptions" :chartData="chartData" />
-      <ActivityHistory :entries="runHistory" />
-      <button @click="resetRun" class="mt-4 w-full bg-blue-600 text-white p-2 rounded">Nouveau Run</button>
+      <ActivityCharts 
+        :barData="displayedRunBarData" 
+        :barOptions="barOptions" 
+        :chartData="displayedRunChartData" 
+      />
+      <ActivityHistory :entries="displayedRun.activities" />
+      <button @click="resetRun" class="mt-4 w-full bg-blue-600 text-white p-2 rounded">
+        Nouveau Run
+      </button>
     </div>
   </div>
 </template>
@@ -25,6 +56,7 @@ import Timer from '../components/Timer.vue';
 import ActivityStats from '../components/ActivityStats.vue';
 import ActivityCharts from '../components/ActivityCharts.vue';
 import ActivityHistory from '../components/ActivityHistory.vue';
+import ActivityDateFilter from '../components/ActivityDateFilter.vue';
 import { useActivityStore } from '../stores/activity';
 
 const runStarted = ref(false);
@@ -61,6 +93,7 @@ const resetRun = () => {
 };
 
 onMounted(() => {
+  activityStore.loadRuns(); // Chargement des runs lors du montage du composant
   startRun();
   // Removed local interval; persistent tracking is now global via App.vue.
 });
@@ -154,6 +187,137 @@ const chartData = computed(() => {
     color: APP_COLORS[index % APP_COLORS.length]
   }));
 });
+
+// PROPRIÉTÉS pour la sélection d'un run persistent
+const selectedRunDate = ref<number | null>(null);
+const selectedRun = computed(() =>
+  selectedRunDate.value !== null
+    ? activityStore.runs.find(run => run.date === selectedRunDate.value) || null
+    : null
+);
+
+const runHistoryList = computed(() => activityStore.runs);
+
+// Nouvelle propriété : filtrer l'historique persistant selon une date
+const runsDateFilter = ref<'jour' | 'semaine' | 'mois' | 'tout'>('tout');
+const computeStartDateForRunFilter = (): number => {
+  const now = new Date();
+  switch (runsDateFilter.value) {
+    case 'jour': {
+      const startOfDay = new Date(now);
+      startOfDay.setHours(0, 0, 0, 0);
+      return startOfDay.getTime();
+    }
+    case 'semaine': {
+      const diff = now.getDay() === 0 ? 6 : now.getDay() - 1;
+      const startOfWeek = new Date(now);
+      startOfWeek.setDate(now.getDate() - diff);
+      startOfWeek.setHours(0, 0, 0, 0);
+      return startOfWeek.getTime();
+    }
+    case 'mois': {
+      const startOfMonth = new Date(now.getFullYear(), now.getMonth(), 1);
+      return startOfMonth.getTime();
+    }
+    case 'tout':
+    default:
+      return 0;
+  }
+};
+
+const filteredRunHistoryList = computed(() => {
+  if (runsDateFilter.value === 'tout') return runHistoryList.value;
+  const startDate = computeStartDateForRunFilter();
+  return runHistoryList.value.filter(run => run.date >= startDate);
+});
+
+// Nouvelle propriété: répartition des applications pour le run sélectionné
+const selectedRunChartData = computed(() => {
+  if (!selectedRun.value) return [];
+  const activities = selectedRun.value.activities;
+  const totalDuration = activities.reduce((sum, entry) => {
+    const duration = entry.end ? entry.end - entry.start : 0;
+    return sum + duration;
+  }, 0);
+  const apps = activities.reduce((acc, entry) => {
+    const duration = entry.end ? entry.end - entry.start : 0;
+    if (!acc[entry.name]) {
+      acc[entry.name] = { duration, count: 1 };
+    } else {
+      acc[entry.name].duration += duration;
+      acc[entry.name].count++;
+    }
+    return acc;
+  }, {} as Record<string, { duration: number; count: number }>);
+  return Object.entries(apps).map(([name, data], index) => ({
+    name,
+    duration: data.duration,
+    percentage: totalDuration ? Math.round((data.duration / totalDuration) * 100) : 0,
+    color: APP_COLORS[index % APP_COLORS.length]
+  }));
+});
+
+// Propriété "displayedRun" : si le timer vient de finir, on affiche le dernier run enregistré, sinon celui sélectionné
+const displayedRun = computed(() => {
+  if (selectedRunDate.value) {
+    return selectedRun.value;
+  } else if (runFinished.value && activityStore.runs.length) {
+    return activityStore.runs[activityStore.runs.length - 1];
+  }
+  return null;
+});
+
+// Calcul des données graphiques à partir du run affiché
+const displayedRunHourlyDistribution = computed(() => {
+  if (!displayedRun.value) return [];
+  const distribution = Array(24).fill(0);
+  displayedRun.value.activities.forEach(entry => {
+    const hour = new Date(entry.start).getHours();
+    distribution[hour] += entry.end ? entry.end - entry.start : 0;
+  });
+  return distribution.map((duration, hour) => ({
+    hour: `${hour}:00`,
+    duration
+  }));
+});
+
+const displayedRunBarData = computed(() => ({
+  labels: displayedRunHourlyDistribution.value.map(d => d.hour),
+  datasets: [
+    { 
+      label: 'Activity Duration', 
+      data: displayedRunHourlyDistribution.value.map(d => d.duration), 
+      backgroundColor: 'rgba(59, 130, 246, 0.8)', 
+      borderRadius: 6 
+    }
+  ]
+}));
+
+const displayedRunChartData = computed(() => {
+  if (!displayedRun.value) return [];
+  const activities = displayedRun.value.activities;
+  const totalDuration = activities.reduce((sum, entry) => {
+    const duration = entry.end ? entry.end - entry.start : 0;
+    return sum + duration;
+  }, 0);
+  const apps = activities.reduce((acc, entry) => {
+    const duration = entry.end ? entry.end - entry.start : 0;
+    if (!acc[entry.name]) {
+      acc[entry.name] = { duration, count: 1 };
+    } else {
+      acc[entry.name].duration += duration;
+      acc[entry.name].count++;
+    }
+    return acc;
+  }, {} as Record<string, { duration: number; count: number }>);
+  return Object.entries(apps).map(([name, data], index) => ({
+    name,
+    duration: data.duration,
+    percentage: totalDuration ? Math.round((data.duration / totalDuration) * 100) : 0,
+    color: APP_COLORS[index % APP_COLORS.length]
+  }));
+});
+
 </script>
 
 <style scoped>
