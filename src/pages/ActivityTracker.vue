@@ -5,7 +5,6 @@
   </div>
   <div v-else class="min-h-screen bg-gray-50">
     <ActivityHeader :locale="locale" @update:locale="locale = $event" />
-    <Timer />
     <main class="max-w-7xl mx-auto py-8 px-4 space-y-10">
       <section>
         <ActivityDateFilter :currentFilter="dateFilter" @update:filter="dateFilter = $event" />

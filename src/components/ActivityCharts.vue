@@ -56,5 +56,4 @@ const formatDuration = (ms: number): string => {
 </script>
 
 <style scoped>
-  /* ...existing styles... */
 </style>

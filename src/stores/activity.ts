@@ -9,7 +9,7 @@ export interface ActivityEntry {
   end: number | null;
 }
 
-export interface RunEntry {
+export interface SprintEntry {
   date: number; 
   start: number;
   end: number;
@@ -22,13 +22,13 @@ export interface RunEntry {
 }
 
 const STORAGE_PATH = 'activity_history.json';
-const RUNS_PATH = 'runs.json';
+const SPRINTS_PATH = 'runs.json';
 
 export const useActivityStore = defineStore('activity', {
   state: () => ({
     history: [] as ActivityEntry[],
     current: null as ActivityEntry | null,
-    runs: [] as RunEntry[],
+    sprints: [] as SprintEntry[],
     trackingInterval: 0 as number
   }),
   actions: {
@@ -68,27 +68,27 @@ export const useActivityStore = defineStore('activity', {
       }
     },
 
-    async saveRuns() {
+    async saveSprints() {
       try {
         await mkdir("", { baseDir: BaseDirectory.AppData, recursive: true });
-        const data = JSON.stringify(this.runs);
+        const data = JSON.stringify(this.sprints);
         const buf = new TextEncoder().encode(data);
-        const file = await open(RUNS_PATH, { write: true, create: true, baseDir: BaseDirectory.AppData });
+        const file = await open(SPRINTS_PATH, { write: true, create: true, baseDir: BaseDirectory.AppData });
         await file.write(buf);
         await file.close();
       } catch (error) {
-        console.error('Erreur lors de la sauvegarde des runs:', error);
+        console.error('Erreur lors de la sauvegarde des sprints:', error);
       }
     },
 
-    // Ajout de la méthode loadRuns pour charger les runs depuis le fichier de stockage
-    async loadRuns() {
+    // Ajout de la méthode loadSprints pour charger les sprintss depuis le fichier de stockage
+    async loadSprints() {
       try {
-        const file = await open(RUNS_PATH, { read: true, baseDir: BaseDirectory.AppData });
+        const file = await open(SPRINTS_PATH, { read: true, baseDir: BaseDirectory.AppData });
         const stat = await file.stat();
         const fileLength = stat.size;
         if (fileLength === 0) { // Si le fichier est vide
-          this.runs = [];
+          this.sprints = [];
           await file.close();
           return;
         }
@@ -102,21 +102,21 @@ export const useActivityStore = defineStore('activity', {
         }
         // Vérifier que le contenu commence par un crochet indiquant un tableau JSON
         if (data[0] !== '[') {
-          console.error('Format invalide dans le fichier runs. Réinitialisation.');
-          this.runs = [];
-          await this.saveRuns();
+          console.error('Format invalide dans le fichier sprints. Réinitialisation.');
+          this.sprints = [];
+          await this.saveSprints();
           return;
         }
         try {
-          this.runs = JSON.parse(data);
+          this.sprints = JSON.parse(data);
         } catch (parseError) {
-          console.error('Erreur lors du parsing des runs:', parseError);
-          this.runs = [];
-          await this.saveRuns();
+          console.error('Erreur lors du parsing des sprints:', parseError);
+          this.sprints = [];
+          await this.saveSprints();
         }
       } catch (error) {
-        console.error('Erreur lors du chargement des runs:', error);
-        this.runs = [];
+        console.error('Erreur lors du chargement des sprints:', error);
+        this.sprints = [];
       }
     },
 
@@ -135,9 +135,9 @@ export const useActivityStore = defineStore('activity', {
       }
     },
 
-    recordRun(runData: RunEntry) {
-      this.runs.push(runData);
-      this.saveRuns();
+    recordSprint(sprintData: SprintEntry) {
+      this.sprints.push(sprintData);
+      this.saveSprints();
     },
 
     /**

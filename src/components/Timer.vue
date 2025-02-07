@@ -87,6 +87,7 @@
   const hasStarted = ref(false);
   const remaining = ref(0);
   const initialTime = ref(0);
+  const endTime = ref(0);
   let timerInterval: ReturnType<typeof setInterval> | null = null;
   
   // Calculs pour l'affichage numérique
@@ -122,20 +123,22 @@
   function startTimer() {
     const total = totalSeconds.value;
     if (total <= 0) return;
-    initialTime.value = total;
-    remaining.value = total;
+    initialTime.value = Math.round(new Date().getTime()/1000);
+    endTime.value = initialTime.value + total;
     isRunning.value = true;
     hasStarted.value = true;
+    remaining.value = endTime.value - initialTime.value;
     timerInterval = setInterval(() => {
-      if (remaining.value > 0) {
-        remaining.value--;
-        if (remaining.value === 0) {
-          stopTimer();
-          emit('finish');
+        let now = Math.round(new Date().getTime() / 1000);
+        if (now < endTime.value) {
+            remaining.value = endTime.value - now;
+            if (remaining.value <= 0) {
+                stopTimer();
+                emit('finish');
+            }
+        } else {
+            stopTimer();
         }
-      } else {
-        stopTimer();
-      }
     }, 1000);
   }
   
