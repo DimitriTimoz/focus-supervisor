@@ -130,7 +130,7 @@
     remaining.value = endTime.value - initialTime.value;
     timerInterval = setInterval(() => {
         let now = Math.round(new Date().getTime() / 1000);
-        if (now < endTime.value) {
+        if (now <= endTime.value) {
             remaining.value = endTime.value - now;
             if (remaining.value <= 0) {
                 stopTimer();

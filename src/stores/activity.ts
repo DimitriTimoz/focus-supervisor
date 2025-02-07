@@ -29,7 +29,8 @@ export const useActivityStore = defineStore('activity', {
     history: [] as ActivityEntry[],
     current: null as ActivityEntry | null,
     sprints: [] as SprintEntry[],
-    trackingInterval: 0 as number
+    trackingInterval: 0 as number,
+    lastChange: 0 as number,
   }),
   actions: {
     /**
@@ -122,8 +123,9 @@ export const useActivityStore = defineStore('activity', {
 
     initPersistentTracking() {
       if (!this.trackingInterval) {
-        this.trackingInterval = setInterval(() => {
-          this.checkFocusedWindow();
+        this.trackingInterval = setInterval(async () => {
+          await this.checkFocusedWindow();
+          await this.checkLastInput();
         }, 1000);
       }
     },
@@ -138,6 +140,22 @@ export const useActivityStore = defineStore('activity', {
     recordSprint(sprintData: SprintEntry) {
       this.sprints.push(sprintData);
       this.saveSprints();
+    },
+
+
+    /*
+      * Vérifier la date du dernier input de l'utilisateur
+      */
+
+    async checkLastInput() {
+      try {
+        const lastInput: number = await invoke("get_last_input");
+        if (lastInput) {
+          this.lastChange = lastInput;
+        }
+      } catch (error) {
+        console.error('Erreur lors de la récupération de la date du dernier input de l\'utilisateur:', error);
+      }
     },
 
     /**
@@ -163,6 +181,8 @@ export const useActivityStore = defineStore('activity', {
 
         // Pas de changement de focus.
         if (this.current.name === name && this.current.title === title) return;
+
+        this.lastChange = now;
 
         // Fin de l'activité courante et sauvegarde dans l'historique.
         this.current.end = now;

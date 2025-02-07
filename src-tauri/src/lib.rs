@@ -6,7 +6,6 @@ struct FocusedWindow {
   title: String,
 }
 
-
 // Learn more about Tauri commands at https://tauri.app/develop/calling-rust/
 #[tauri::command]
 fn get_focused_window() -> Option<FocusedWindow> {
@@ -27,12 +26,21 @@ fn get_focused_window() -> Option<FocusedWindow> {
     }
 }
 
+
+#[tauri::command]
+fn get_last_input() -> u128 {
+    match user_idle::UserIdle::get_time() {
+        Ok(time) => time.as_milliseconds(),
+        Err(_) => 0,
+    }
+}
+
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
 pub fn run() {
     tauri::Builder::default()
         .plugin(tauri_plugin_opener::init())
         .plugin(tauri_plugin_fs::init())
-        .invoke_handler(tauri::generate_handler![get_focused_window])
+        .invoke_handler(tauri::generate_handler![get_focused_window, get_last_input])
         .run(tauri::generate_context!())
         .expect("error while running tauri application");
 }
