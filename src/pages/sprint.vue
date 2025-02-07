@@ -1,6 +1,6 @@
 <template>
   <div class="min-h-screen bg-gray-100">
-    <!-- Header fixe avec titre et bouton pour lancer la configuration du Timer -->
+    <!-- Header -->
     <header class="bg-blue-600 text-white p-4 flex flex-col md:flex-row md:items-center md:justify-between">
       <h1 class="text-2xl font-bold mb-4 md:mb-0">Activity Sprint Tracker</h1>
       <div class="flex items-center space-x-4">
@@ -19,7 +19,7 @@
         <!-- Colonne gauche : Historique et filtres -->
         <aside class="md:col-span-1 bg-white p-4 rounded shadow">
           <h2 class="text-xl font-semibold mb-4">Historique des Sprints</h2>
-          <!-- Filtre de période -->
+          <!-- Filtre par période -->
           <div class="mb-4">
             <label for="dateFilter" class="block font-medium mb-1">Filtrer par période :</label>
             <select
@@ -50,11 +50,12 @@
                 {{ new Date(sprint.date).toLocaleString() }}
               </option>
             </select>
+            <!-- Historique des activités du sprint sélectionné -->
             <ActivityHistory v-if="displayedSprint" :entries="displayedSprint.activities" />
           </div>
         </aside>
 
-        <!-- Colonne droite : Détails du sprint (stats, graphiques et historique) -->
+        <!-- Colonne droite : Détails du sprint sélectionné -->
         <section class="md:col-span-2 bg-white p-6 rounded shadow">
           <div v-if="displayedSprint">
             <h2 class="text-2xl font-bold mb-4">Détails du Sprint</h2>
@@ -64,9 +65,11 @@
               :averageActivityDuration="displayedSprint.summary.averageDuration" 
             />
             <div class="mt-6 gap-6">
-              <!-- Graphique d'activités -->
+              <!-- Graphique d'activités pour le sprint sélectionné -->
               <div class="bg-gray-50 p-4 rounded shadow">
+                <!-- La clé dynamique force le rechargement du composant lors d'un changement -->
                 <ActivityCharts 
+                  :key="selectedSprintDate"
                   :barData="displayedSprintBarData" 
                   :barOptions="barOptions" 
                   :chartData="displayedSprintChartData" 
@@ -75,7 +78,7 @@
             </div>
           </div>
           <div v-else class="text-center text-gray-500">
-            Aucune donnée de sprint disponible.
+            Aucune donnée de sprint sélectionnée.
           </div>
         </section>
       </div>
@@ -95,11 +98,10 @@
           &times;
         </button>
         <h2 class="text-xl font-semibold mb-4 text-center">Configuration du Timer</h2>
-        <!-- Timer centré avec dimensions adaptées (120px par 120px) -->
+        <!-- Timer centré -->
         <div class="relative mx-auto">
           <Timer @finish="finishSprint" class="w-full h-full" />
         </div>
-        <!-- Le bouton "Démarrer le Sprint" a été supprimé -->
       </div>
     </div>
   </div>
@@ -121,19 +123,19 @@ const sprintEnd = ref(0);
 
 const activityStore = useActivityStore();
 
-// Démarre le sprint en initialisant l'heure de début
+// Démarrer le sprint : initialise l'heure de début
 const startSprint = () => {
   sprintStart.value = Date.now();
   sprintStarted.value = true;
   sprintFinished.value = false;
 };
 
-// Appelé lorsque le Timer se termine
+// Appelée lorsque le Timer se termine
 const finishSprint = () => {
   sprintEnd.value = Date.now();
   sprintFinished.value = true;
   sprintStarted.value = false;
-  // Enregistrement du sprint avec ses données
+  // Enregistrement du sprint avec ses activités et son résumé
   activityStore.recordSprint({
     date: sprintStart.value,
     start: sprintStart.value,
@@ -141,11 +143,11 @@ const finishSprint = () => {
     activities: sprintHistory.value,
     summary: summary.value
   });
-  // Fermeture automatique de la modale une fois le sprint terminé
+  // Fermeture automatique de la modale
   closeTimerSetup();
 };
 
-// Réinitialise le sprint et démarre un nouveau sprint
+// Réinitialiser le sprint et démarrer un nouveau sprint
 const resetSprint = () => {
   sprintStarted.value = false;
   sprintFinished.value = false;
@@ -153,28 +155,28 @@ const resetSprint = () => {
 };
 
 onMounted(() => {
-  activityStore.loadSprints(); // Chargement des sprints enregistrés
+  activityStore.loadSprints();
 });
 
 // ----------------- Gestion de la modale du Timer -----------------
 const showTimerSetup = ref(false);
-
 const openTimerSetup = () => {
-  resetSprint(); // Démarrage d'un nouveau sprint dès l'ouverture de la modale
+  resetSprint();
   showTimerSetup.value = true;
 };
-
 const closeTimerSetup = () => {
   showTimerSetup.value = false;
 };
 
-// ----------------- Graphiques et statistiques -----------------
+// ----------------- Calcul des données du sprint en cours -----------------
+// Historique des activités pendant le sprint en cours (pour l'enregistrement)
 const sprintHistory = computed(() =>
   activityStore.history.filter(
     entry => entry.start >= sprintStart.value && entry.start <= sprintEnd.value
   )
 );
 
+// Calcul du résumé du sprint en cours
 const summary = computed(() => {
   const activities = sprintHistory.value;
   const activitiesCount = activities.length;
@@ -186,18 +188,7 @@ const summary = computed(() => {
   return { activitiesCount, totalDuration, averageDuration };
 });
 
-const hourlyDistribution = computed(() => {
-  const distribution = Array(24).fill(0);
-  sprintHistory.value.forEach(entry => {
-    const hour = new Date(entry.start).getHours();
-    distribution[hour] += entry.end ? entry.end - entry.start : 0;
-  });
-  return distribution.map((duration, hour) => ({
-    hour: `${hour}:00`,
-    duration
-  }));
-});
-
+// ----------------- Données pour les graphiques -----------------
 const barOptions = { 
   responsive: true,
   maintainAspectRatio: false,
@@ -237,7 +228,6 @@ const displayedSprintBarData = computed(() => {
   };
 });
 
-// Palette de couleurs pour les graphiques
 const APP_COLORS = [
   'bg-blue-500',
   'bg-green-500',
@@ -274,17 +264,10 @@ const displayedSprintChartData = computed(() => {
   }));
 });
 
-// ----------------- Gestion de l'historique persistant -----------------
-const selectedSprintDate = ref<number | null>(null);
-const selectedSprint = computed(() =>
-  selectedSprintDate.value !== null
-    ? activityStore.sprints.find(sprint => sprint.date === selectedSprintDate.value) || null
-    : null
-);
-
+// ----------------- Gestion de l'historique persistant et de la sélection -----------------
 const sprintHistoryList = computed(() => activityStore.sprints);
-
 const sprintsDateFilter = ref<'jour' | 'semaine' | 'mois' | 'tout'>('tout');
+
 const computeStartDateForSprintFilter = (): number => {
   const now = new Date();
   switch (sprintsDateFilter.value) {
@@ -316,9 +299,13 @@ const filteredSprintHistoryList = computed(() => {
   return sprintHistoryList.value.filter(sprint => sprint.date >= startDate);
 });
 
-const displayedSprint = computed(() => {
-  return selectedSprint.value || (activityStore.sprints.length ? activityStore.sprints[activityStore.sprints.length - 1] : null);
-});
+const selectedSprintDate = ref<number | null>(null);
+const selectedSprint = computed(() =>
+  selectedSprintDate.value !== null
+    ? activityStore.sprints.find(sprint => sprint.date === selectedSprintDate.value) || null
+    : null
+);
+const displayedSprint = computed(() => selectedSprint.value);
 </script>
 
 <style scoped>

@@ -1,6 +1,6 @@
 <template>
     <div class="grid grid-cols-1 lg:grid-cols-2 gap-8">
-      <!-- Bar Chart -->
+      <!-- Bar Chart : Activité horaire -->
       <div class="bg-white rounded-lg shadow p-6">
         <h3 class="text-lg font-semibold text-gray-800 mb-4 flex items-center">
           <span class="mr-2">📊</span>
@@ -8,7 +8,11 @@
         </h3>
         <div class="relative h-64">
           <!-- On utilise computedBarData (calculé en interne) à la place de la prop barData -->
-          <Bar :data="computedBarData" :options="barOptions" :key="JSON.stringify(computedBarData)" />
+          <Bar
+            :data="computedBarData"
+            :options="barOptions"
+            :key="JSON.stringify(computedBarData)"
+          />
         </div>
       </div>
   
@@ -20,8 +24,11 @@
         </h3>
         <div v-if="chartData && chartData.length">
           <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
-            <div v-for="segment in chartData" :key="segment.name"
-                 class="flex items-center p-4 bg-gray-50 rounded-md shadow-sm">
+            <div
+              v-for="segment in chartData"
+              :key="segment.name"
+              class="flex items-center p-4 bg-gray-50 rounded-md shadow-sm"
+            >
               <div :class="segment.color" class="w-4 h-4 rounded-full mr-3"></div>
               <div>
                 <p class="text-sm font-semibold text-gray-700">{{ segment.name }}</p>
@@ -43,9 +50,10 @@
   import { computed } from 'vue';
   import { Bar } from 'vue-chartjs';
   import { defineProps, withDefaults } from 'vue';
-  import { useActivityStore } from '../stores/activity'; // Importation du store
+  import { useActivityStore } from '../stores/activity';
   
-  // Même si on accepte la prop barData, on l'ignore pour calculer notre propre graphique
+  // Définition des props avec des valeurs par défaut.
+  // Même si on accepte la prop barData, on l'ignore ici pour calculer notre propre graphique.
   const props = withDefaults(
     defineProps<{
       barData: any;
@@ -55,17 +63,17 @@
     {
       barData: { labels: [], datasets: [] },
       barOptions: {},
-      chartData: []
+      chartData: [],
     }
   );
   
   const barOptions = props.barOptions; // On utilise les options reçues
-  const chartData = props.chartData;
+  const chartData = props.chartData; // Chart data pour la distribution des applications
   
   // Accès au store pour récupérer l'historique complet des activités
   const activityStore = useActivityStore();
   
-  // On suppose que chaque entrée d'activité a au moins les propriétés suivantes :
+  // On suppose que chaque entrée d'activité possède au moins :
   // - start: number (timestamp de début)
   // - end: number (timestamp de fin)
   // - name: string (nom de l'application ou activité)
@@ -81,7 +89,6 @@
    */
   const splitActivityIntoHours = (activity: Activity) => {
     const segments: Array<{ hour: number; duration: number }> = [];
-    const startDate = new Date(activity.start);
     const endDate = new Date(activity.end);
     let currentTime = new Date(activity.start);
   
@@ -104,34 +111,34 @@
     return segments;
   };
   
-  // Pour toutes les activités du store, on découpe chacune en segments horaires
+  // Pour toutes les activités du store, on découpe chacune en segments horaires.
   const allSegments = computed(() => {
     const segments: Array<{ hour: number; duration: number }> = [];
-    activityStore.history.forEach(activity => {
-      // On vérifie que l'activité a bien une date de fin
-      if (activity.end && activity.start) {
+    activityStore.history.forEach((activity: Activity) => {
+      // On vérifie que l'activité a bien une date de début et de fin
+      if (activity.start && activity.end) {
         segments.push(...splitActivityIntoHours(activity));
       }
     });
     return segments;
   });
   
-  // On agrège les segments par heure
+  // Agrégation des segments par heure.
   const aggregatedByHour = computed(() => {
     const agg: Record<number, number> = {};
     allSegments.value.forEach(seg => {
       agg[seg.hour] = (agg[seg.hour] || 0) + seg.duration;
     });
-    // Transformation en tableau et tri par heure
+    // Transformation en tableau, conversion en minutes et tri par heure
     return Object.keys(agg)
       .map(hour => ({
         hour: Number(hour),
-        duration: agg[Number(hour)] / (1000 * 60) // Conversion en minutes
+        duration: agg[Number(hour)] / (1000 * 60), // conversion en minutes
       }))
       .sort((a, b) => a.hour - b.hour);
   });
   
-  // Calcul du barData à utiliser pour le graphique
+  // Calcul des données à utiliser pour le graphique en barres.
   const computedBarData = computed(() => ({
     labels: aggregatedByHour.value.map(seg => `${seg.hour}:00`),
     datasets: [
@@ -139,9 +146,9 @@
         label: 'Activity Duration',
         data: aggregatedByHour.value.map(seg => seg.duration),
         backgroundColor: 'rgba(59, 130, 246, 0.8)',
-        borderRadius: 6
-      }
-    ]
+        borderRadius: 6,
+      },
+    ],
   }));
   
   // Fonction utilitaire pour formater une durée (en ms) en "Xh Ym"
@@ -154,6 +161,6 @@
   </script>
   
   <style scoped>
-  /* Vos styles ici */
+  /* Ajoutez ici vos styles personnalisés si nécessaire */
   </style>
   
