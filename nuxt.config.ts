@@ -18,6 +18,11 @@ export default defineNuxtConfig({
     defaultLocale: 'en',
     vueI18n: './i18n.config.ts',
   },
+  app: {
+    rootId: 'app', // Doit correspondre à l'élément dans index.html
+    layoutTransition: { name: 'layout', mode: 'out-in' },
+    pageTransition: { name: 'page', mode: 'out-in' }
+  },
   vite: {
     // Better support for Tauri CLI output
     clearScreen: false,
@@ -34,6 +39,8 @@ export default defineNuxtConfig({
     },
     plugins: [
         tailwindcss(),
+
     ],
   },
+  plugins: ['~/plugins/chartjs.ts']
 })
