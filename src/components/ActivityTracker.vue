@@ -1,17 +1,37 @@
 <script setup lang="ts">
-import { ref, computed, onMounted, onUnmounted } from 'vue';
+import { ref, computed, onMounted, onUnmounted, watch } from 'vue';
+import { useI18n } from 'vue-i18n';
 import { useActivityStore } from '../stores/activity';
 import ActivityHistory from './ActivityHistory.vue';
-import { Bar } from 'vue-chartjs'
-import { Chart as ChartJS, Title, Tooltip, Legend, ArcElement, BarElement, CategoryScale, LinearScale, TimeScale } from 'chart.js'
+import { Bar } from 'vue-chartjs';
+import {
+  Chart as ChartJS,
+  Title,
+  Tooltip,
+  Legend,
+  ArcElement,
+  BarElement,
+  CategoryScale,
+  LinearScale,
+  TimeScale
+} from 'chart.js';
 
-ChartJS.register(Title, Tooltip, Legend, ArcElement, BarElement, CategoryScale, LinearScale, TimeScale)
+ChartJS.register(
+  Title,
+  Tooltip,
+  Legend,
+  ArcElement,
+  BarElement,
+  CategoryScale,
+  LinearScale,
+  TimeScale
+);
 
 // ===============================
 // CONSTANTES & DONNÉES
 // ===============================
 const APP_COLORS = [
-  'bg-blue-500', 
+  'bg-blue-500',
   'bg-green-500',
   'bg-yellow-500',
   'bg-red-500',
@@ -39,7 +59,21 @@ const availableLocales = [
 // ===============================
 const activityStore = useActivityStore();
 const dateFilter = ref<'jour' | 'semaine' | 'mois' | 'tout'>('jour');
-const locale = ref('en'); // Liaison avec le sélecteur de langue
+// Set the default locale to English.
+const locale = ref('en');
+const isLoading = ref(true);
+let intervalId: number | undefined;
+
+// ===============================
+// I18N SETUP
+// ===============================
+const { t, locale: i18nLocale } = useI18n();
+// Set the initial i18n locale from our locale ref.
+i18nLocale.value = locale.value;
+// Watch for changes in the locale ref to update the i18n locale.
+watch(locale, (newLocale) => {
+  i18nLocale.value = newLocale;
+});
 
 // ===============================
 // FONCTIONS UTILITAIRES
@@ -54,7 +88,7 @@ const computeStartDateForFilter = (): number => {
     }
     case 'semaine': {
       const dayOfWeek = now.getDay();
-      const diff = (dayOfWeek === 0 ? 6 : dayOfWeek - 1);
+      const diff = dayOfWeek === 0 ? 6 : dayOfWeek - 1;
       const startOfWeek = new Date(now);
       startOfWeek.setDate(now.getDate() - diff);
       startOfWeek.setHours(0, 0, 0, 0);
@@ -70,6 +104,17 @@ const computeStartDateForFilter = (): number => {
   }
 };
 
+const formatTime = (timestamp: number): string => {
+  return new Date(timestamp).toLocaleTimeString(i18nLocale.value);
+};
+
+const formatDuration = (ms: number): string => {
+  const totalSeconds = Math.floor(ms / 1000);
+  const hours = Math.floor(totalSeconds / 3600);
+  const minutes = Math.floor((totalSeconds % 3600) / 60);
+  return `${hours}h ${minutes}m`;
+};
+
 // ===============================
 // PROPRIÉTÉS CALCULÉES
 // ===============================
@@ -83,12 +128,12 @@ const filteredHistory = computed(() => {
 
 const chartData = computed(() => {
   if (!filteredHistory.value.length) return [];
-  
+
   const totalDuration = filteredHistory.value.reduce(
     (sum, entry) => sum + (entry.end! - entry.start),
     0
   );
-  
+
   const apps = filteredHistory.value.reduce((acc, entry) => {
     const duration = entry.end! - entry.start;
     if (!acc[entry.name]) {
@@ -100,28 +145,25 @@ const chartData = computed(() => {
     return acc;
   }, {} as Record<string, { duration: number; count: number }>);
 
-  return Object.entries(apps)
-    .map(([name, data], index) => ({
-      name,
-      percentage: Math.round((data.duration / totalDuration) * 100),
-      duration: data.duration,
-      count: data.count,
-      color: APP_COLORS[index % APP_COLORS.length]
-    }));
+  return Object.entries(apps).map(([name, data], index) => ({
+    name,
+    percentage: Math.round((data.duration / totalDuration) * 100),
+    duration: data.duration,
+    count: data.count,
+    color: APP_COLORS[index % APP_COLORS.length]
+  }));
 });
 
 const totalTrackedTime = computed(() =>
   filteredHistory.value.reduce((sum, entry) => sum + (entry.end! - entry.start), 0)
 );
+
 const totalActivities = computed(() => filteredHistory.value.length);
+
 const averageActivityDuration = computed(() =>
   totalActivities.value > 0 ? totalTrackedTime.value / totalActivities.value : 0
 );
 
-// -------------------------------
-// Nouvelles statistiques :
-// -------------------------------
-// Longest Activity : recherche l'activité ayant la plus longue durée
 const longestActivity = computed(() => {
   if (filteredHistory.value.length === 0) return null;
   return filteredHistory.value.reduce((prev, cur) => {
@@ -131,244 +173,278 @@ const longestActivity = computed(() => {
   });
 });
 
-// Most Used App : recherche l'application avec la durée totale la plus élevée
 const mostUsedApp = computed(() => {
   if (chartData.value.length === 0) return null;
-  return chartData.value.reduce((max, seg) => seg.duration > max.duration ? seg : max, chartData.value[0]);
+  return chartData.value.reduce(
+    (max, seg) => (seg.duration > max.duration ? seg : max),
+    chartData.value[0]
+  );
 });
 
+const hourlyDistribution = computed(() => {
+  const distribution = Array(24).fill(0);
+  filteredHistory.value.forEach(entry => {
+    const hour = new Date(entry.start).getHours();
+    const duration = entry.end! - entry.start;
+    distribution[hour] += duration;
+  });
+  return distribution.map((duration, hour) => ({
+    hour: `${hour}:00`,
+    duration
+  }));
+});
 
 // ===============================
-// BOUCLE D'ACTUALISATION
+// CHART OPTIONS & DATA
 // ===============================
-let intervalId: NodeJS.Timeout;
-onMounted(() => {
+const barOptions = {
+  responsive: true,
+  maintainAspectRatio: false,
+  scales: {
+    x: {
+      grid: { display: false },
+      ticks: { color: '#6B7280' }
+    },
+    y: {
+      beginAtZero: true,
+      grid: { color: '#E5E7EB' },
+      ticks: { color: '#6B7280' }
+    }
+  },
+  plugins: {
+    legend: { display: false },
+    tooltip: {
+      backgroundColor: 'rgba(0,0,0,0.8)',
+      padding: 12,
+      titleColor: '#fff',
+      bodyColor: '#fff',
+      cornerRadius: 8
+    }
+  }
+};
+
+const barData = computed(() => ({
+  labels: hourlyDistribution.value.map(d => d.hour),
+  datasets: [
+    {
+      label: 'Activity Duration',
+      data: hourlyDistribution.value.map(d => d.duration),
+      backgroundColor: 'rgba(59, 130, 246, 0.8)',
+      borderRadius: 6
+    }
+  ]
+}));
+
+// ===============================
+// LIFECYCLE HOOKS
+// ===============================
+onMounted(async () => {
+  setTimeout(() => {
+    isLoading.value = false;
+  }, 1000);
+
   intervalId = setInterval(async () => {
     await activityStore.checkFocusedWindow();
   }, 1000);
 });
+
 onUnmounted(() => {
-  clearInterval(intervalId);
+  if (intervalId) clearInterval(intervalId);
 });
-
-const hourlyDistribution = computed(() => {
-  const distribution = Array(24).fill(0)
-  
-  filteredHistory.value.forEach(entry => {
-    const hour = new Date(entry.start).getHours()
-    const duration = entry.end! - entry.start
-    distribution[hour] += duration
-  })
-
-  return distribution.map((duration, hour) => ({
-    hour: `${hour}:00`,
-    duration
-  }))
-})
-
-
-
-const barOptions = ref({
-  responsive: true,
-  scales: {
-  }
-});
-
-const doughnutData = computed(() => ({
-  labels: chartData.value.map(d => d.name),
-  datasets: [{
-    data: chartData.value.map(d => d.duration),
-    backgroundColor: chartData.value.map(d => d.color.replace('bg-', '')).map(c => 
-      getComputedStyle(document.documentElement).getPropertyValue(`--${c}`) || c
-    )
-  }]
-}))
-
-const barData = computed(() => ({
-  datasets: [{
-    label: 'Activity Duration',
-    data: hourlyDistribution.value.map(d => ({
-      x: new Date().setHours(parseInt(d.hour.split(':')[0]), 0, 0, 0),
-      y: d.duration
-    })),
-    backgroundColor: '#3B82F6'
-  }]
-}))
-
 </script>
 
 <template>
-  <div class="min-h-screen bg-gray-50">
-    <!-- En-tête -->
-    <header class="bg-white shadow-sm">
-      <div class="container mx-auto py-4 px-6 flex justify-between items-center">
-        <h1 class="text-3xl font-bold text-gray-800">{{ $t("activity_dashboard") }}</h1>
-        <!-- Sélecteur de langue -->
-        <div>
-          <select v-model="locale" class="border border-gray-300 rounded px-3 py-1 focus:outline-blue-500">
-            <option v-for="lang in availableLocales" :key="lang.code" :value="lang.code">
-              {{ lang.label }}
-            </option>
-          </select>
-        </div>
+  <div v-if="isLoading" class="min-h-screen flex items-center justify-center bg-gray-100 animate-fadeIn">
+    <div class="text-center">
+      <div class="w-16 h-16 border-4 border-blue-600 border-t-transparent rounded-full animate-spin mx-auto"></div>
+      <p class="mt-4 text-gray-600 animate-slideIn">{{ t('loading_dashboard') }}</p>
+    </div>
+  </div>
+
+  <div v-else class="min-h-screen bg-gray-50">
+    <!-- Sticky Animated Header -->
+    <header class="sticky top-0 z-20 bg-white shadow py-4 border-b border-gray-200 animate-slideDown">
+      <div class="max-w-7xl mx-auto px-4 flex justify-between items-center">
+        <h1 class="text-2xl font-semibold text-gray-900 animate-rotateIn">
+          {{ t("activity_dashboard") }}
+        </h1>
+        <!-- Removed animation class "animate-bounce" from the select element -->
+        <select
+          v-model="locale"
+          class="bg-gray-100 border border-gray-300 rounded-md px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500"
+        >
+          <option v-for="lang in availableLocales" :key="lang.code" :value="lang.code">
+            {{ lang.label }}
+          </option>
+        </select>
       </div>
     </header>
 
-    <main class="container mx-auto py-6 px-6 space-y-12">
-      <!-- Section: Filtrer par dates -->
-      <section>
-        <h2 class="text-2xl font-bold text-gray-800 mb-4">{{ $t('filter_by_date') }}</h2>
-        <div class="flex flex-wrap gap-2">
-          <button 
-            @click="dateFilter = 'jour'" 
-            :class="['transition-colors duration-300 px-4 py-2 rounded', dateFilter === 'jour' ? 'bg-blue-600 text-white' : 'bg-gray-200 text-gray-700']">
-            {{ $t('day') }}
-          </button>
-          <button 
-            @click="dateFilter = 'semaine'" 
-            :class="['transition-colors duration-300 px-4 py-2 rounded', dateFilter === 'semaine' ? 'bg-blue-600 text-white' : 'bg-gray-200 text-gray-700']">
-            {{ $t('week') }}
-          </button>
-          <button 
-            @click="dateFilter = 'mois'" 
-            :class="['transition-colors duration-300 px-4 py-2 rounded', dateFilter === 'mois' ? 'bg-blue-600 text-white' : 'bg-gray-200 text-gray-700']">
-            {{ $t('month') }}
-          </button>
-          <button 
-            @click="dateFilter = 'tout'" 
-            :class="['transition-colors duration-300 px-4 py-2 rounded', dateFilter === 'tout' ? 'bg-blue-600 text-white' : 'bg-gray-200 text-gray-700']">
-            {{ $t('all_periods') }}
+    <main class="max-w-7xl mx-auto py-8 px-4 space-y-10">
+      <!-- Date Filter -->
+      <section class="animate-fadeIn" style="animation-delay: 200ms">
+        <h2 class="text-xl font-semibold text-gray-800 mb-4">
+          {{ t("filter_by_date") }}
+        </h2>
+        <div class="flex flex-wrap gap-3">
+          <button
+            v-for="filter in ['jour', 'semaine', 'mois', 'tout']"
+            :key="filter"
+            type="button"
+            @click="dateFilter = filter"
+            :class="[
+              'px-5 py-2 rounded-md transition duration-200',
+              dateFilter === filter
+                ? 'bg-blue-600 text-white shadow-md'
+                : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
+            ]"
+          >
+            {{ t(filter) }}
           </button>
         </div>
       </section>
-      <section>
-        <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
-          <div class="stats-card bg-gradient-to-br from-blue-50 to-blue-100">
-            <div class="text-blue-600">
-              <ClockIcon class="h-6 w-6" />
-            </div>
-            <div>
-              <p class="stat-label">{{ $t('total_time') }}</p>
-              <p class="stat-value">{{ formatDuration(totalTrackedTime) }}</p>
-            </div>
-          </div>
-          <!-- Repeat similar structure for other stats -->
-        </div>
-      </section>
-        <!-- Chart Section -->
-        <section class="grid grid-cols-1 lg:grid-cols-2 gap-8">
-            <div class="chart-container">
-            <h3 class="text-lg font-semibold mb-4">{{ $t('hourly_activity') }}</h3>
-            <div class="chart-wrapper">
-                <Bar :data="barData" :options="barOptions" />
-            </div>
-            </div>
-        </section>
 
-      <!-- Section: Statistiques globales -->
-      <section>
-        <h2 class="text-2xl font-bold text-gray-800 mb-6">{{ $t('global_statistics') }}</h2>
+      <!-- Statistics Cards -->
+      <section class="animate-fadeIn" style="animation-delay: 300ms">
         <div class="grid grid-cols-1 sm:grid-cols-3 gap-6">
-          <div class="p-6 bg-white rounded-lg shadow hover:shadow-lg transition-shadow duration-300">
-            <p class="text-sm text-gray-500">{{ $t('total_time') }}</p>
-            <p class="mt-1 text-xl font-semibold text-gray-700">{{ formatDuration(totalTrackedTime) }}</p>
-          </div>
-          <div class="p-6 bg-white rounded-lg shadow hover:shadow-lg transition-shadow duration-300">
-            <p class="text-sm text-gray-500">{{ $t('activities_recorded') }}</p>
-            <p class="mt-1 text-xl font-semibold text-gray-700">{{ totalActivities }}</p>
-          </div>
-          <div class="p-6 bg-white rounded-lg shadow hover:shadow-lg transition-shadow duration-300">
-            <p class="text-sm text-gray-500">{{ $t('average_duration') }}</p>
-            <p class="mt-1 text-xl font-semibold text-gray-700">{{ formatDuration(averageActivityDuration) }}</p>
+          <div
+            v-for="(stat, index) in [
+              { label: t('total_time'), value: formatDuration(totalTrackedTime) },
+              { label: t('activities_recorded'), value: totalActivities },
+              { label: t('average_duration'), value: formatDuration(averageActivityDuration) }
+            ]"
+            :key="index"
+            class="p-6 bg-white rounded-lg shadow hover:shadow-lg transition duration-200 animate-popIn"
+            :style="{ animationDelay: `${(index + 1) * 100}ms` }"
+          >
+            <p class="text-sm text-gray-500">{{ stat.label }}</p>
+            <p class="mt-2 text-3xl font-bold text-gray-900">{{ stat.value }}</p>
           </div>
         </div>
       </section>
 
-      <!-- Section: Répartition des applications -->
-      <section>
-        <h2 class="text-2xl font-bold text-gray-800 mb-6">{{ $t('applications_distribution') }}</h2>
-        <div v-if="chartData.length" class="space-y-8">
-          <!-- Progression -->
-          <div class="relative h-8 w-full bg-gray-200 rounded-full overflow-hidden">
-            <div class="flex h-full">
-              <div 
-                v-for="segment in chartData" 
-                :key="segment.name"
-                :style="{ width: `${segment.percentage}%` }"
-                :class="segment.color"
-                class="h-full transition-all duration-500"
-              ></div>
-            </div>
+      <!-- Charts -->
+      <section class="grid grid-cols-1 lg:grid-cols-2 gap-8">
+        <!-- Hourly Activity Bar Chart -->
+        <div class="bg-white rounded-lg shadow p-6 animate-slideIn" style="animation-delay: 400ms">
+          <h3 class="text-lg font-semibold text-gray-800 mb-4 flex items-center">
+            <span class="mr-2">📊</span>
+            {{ t("hourly_activity") }}
+          </h3>
+          <div class="relative h-64">
+            <Bar :data="barData" :options="barOptions" />
           </div>
-          <!-- Légende -->
-          <div class="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-4">
-            <div 
-              v-for="segment in chartData" 
-              :key="segment.name"
-              class="flex items-center space-x-3 p-4 bg-white rounded-lg shadow-sm hover:shadow-md transition duration-300"
-            >
-              <div :class="segment.color" class="w-4 h-4 rounded-full flex-shrink-0"></div>
-              <div>
-                <p class="text-sm font-semibold text-gray-700">{{ segment.name }}</p>
-                <p class="text-xs text-gray-500">
-                  {{ formatDuration(segment.duration) }} ({{ segment.percentage }}%)
-                </p>
+        </div>
+
+        <!-- Applications Distribution -->
+        <div class="bg-white rounded-lg shadow p-6 animate-slideIn" style="animation-delay: 500ms">
+          <h3 class="text-lg font-semibold text-gray-800 mb-4 flex items-center">
+            <span class="mr-2">📈</span>
+            {{ t("applications_distribution") }}
+          </h3>
+          <div v-if="chartData.length">
+            <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
+              <div
+                v-for="segment in chartData"
+                :key="segment.name"
+                class="flex items-center p-4 bg-gray-50 rounded-md shadow-sm hover:shadow transition duration-200 animate-popIn"
+                style="animation-delay: 600ms"
+              >
+                <div :class="segment.color" class="w-4 h-4 rounded-full mr-3"></div>
+                <div>
+                  <p class="text-sm font-semibold text-gray-700">{{ segment.name }}</p>
+                  <p class="text-xs text-gray-500">
+                    {{ formatDuration(segment.duration) }} ({{ segment.percentage }}%)
+                  </p>
+                </div>
               </div>
             </div>
           </div>
-        </div>
-        <div v-else class="text-gray-500 text-center py-4">
-          {{ $t('no_activity_data') }}
-        </div>
-      </section>
-
-      <!-- Section: Statistiques et fonctionnalités supplémentaires -->
-      <section>
-        <h2 class="text-2xl font-bold text-gray-800 mb-6">Stats & Features</h2>
-        <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
-          <div class="p-6 bg-white rounded-lg shadow hover:shadow-md transition-shadow duration-300">
-            <p class="text-sm text-gray-500">Plus longue activité:</p>
-            <p class="mt-1 text-lg font-semibold text-gray-700">
-              <span v-if="longestActivity">
-                {{ formatDuration(longestActivity.end ? (longestActivity.end - longestActivity.start) : 0) }}
-                <small class="text-xs text-gray-500">({{ longestActivity.title }})</small>
-              </span>
-              <span v-else>-</span>
-            </p>
-          </div>
-          <div class="p-6 bg-white rounded-lg shadow hover:shadow-md transition-shadow duration-300">
-            <p class="text-sm text-gray-500">Application la plus utilisée:</p>
-            <p class="mt-1 text-lg font-semibold text-gray-700">
-              <span v-if="mostUsedApp">
-                {{ mostUsedApp.name }} ({{ formatDuration(mostUsedApp.duration) }})
-              </span>
-              <span v-else>-</span>
-            </p>
+          <div v-else class="text-gray-500 text-center py-4">
+            {{ t("no_activity_data") }}
           </div>
         </div>
       </section>
 
-      <!-- Section: Historique d'activité -->
-      <section>
+      <!-- Activity History -->
+      <section class="animate-fadeIn" style="animation-delay: 700ms">
         <ActivityHistory />
       </section>
     </main>
   </div>
 </template>
 
-<!-- Script classique pour définir quelques méthodes utilitaires -->
-<script lang="ts">
-export default {
-  methods: {
-    formatTime(timestamp: number): string {
-      return new Date(timestamp).toLocaleTimeString('fr-FR');
-    },
-    formatDuration(ms: number): string {
-      const totalSeconds = Math.floor(ms / 1000);
-      const hours = Math.floor(totalSeconds / 3600);
-      const minutes = Math.floor((totalSeconds % 3600) / 60);
-      return `${hours}h ${minutes}m`;
-    }
-  }
-};
-</script>
+<style scoped>
+/* Base animations */
+@keyframes fadeIn {
+  from { opacity: 0; }
+  to { opacity: 1; }
+}
+
+@keyframes slideIn {
+  from { transform: translateY(20px); opacity: 0; }
+  to { transform: translateY(0); opacity: 1; }
+}
+
+@keyframes slideDown {
+  from { transform: translateY(-100%); opacity: 0; }
+  to { transform: translateY(0); opacity: 1; }
+}
+
+@keyframes popIn {
+  from { transform: scale(0.9); opacity: 0; }
+  to { transform: scale(1); opacity: 1; }
+}
+
+@keyframes bounce {
+  0%, 20%, 50%, 80%, 100% { transform: translateY(0); }
+  40% { transform: translateY(-10px); }
+  60% { transform: translateY(-5px); }
+}
+
+@keyframes rotateIn {
+  from { transform: rotate(-15deg); opacity: 0; }
+  to { transform: rotate(0deg); opacity: 1; }
+}
+
+/* Apply animation classes */
+.animate-fadeIn {
+  animation: fadeIn 1s ease forwards;
+}
+
+.animate-slideIn {
+  animation: slideIn 0.8s ease forwards;
+}
+
+.animate-slideDown {
+  animation: slideDown 0.8s ease forwards;
+}
+
+.animate-popIn {
+  animation: popIn 0.6s ease forwards;
+}
+
+/* Removed .animate-bounce usage from the language button */
+
+/* Additional styling */
+button {
+  outline: none;
+}
+
+button:focus {
+  box-shadow: 0 0 0 2px rgba(59, 130, 246, 0.5);
+}
+
+.hover\:scale:hover {
+  transform: scale(1.02);
+}
+
+footer {
+  padding: 1rem;
+  text-align: center;
+  color: #6B7280;
+  font-size: 0.875rem;
+  border-top: 1px solid #E5E7EB;
+  margin-top: 2rem;
+}
+</style>
