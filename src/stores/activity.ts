@@ -9,12 +9,27 @@ export interface ActivityEntry {
   end: number | null;
 }
 
+export interface RunEntry {
+  date: number; 
+  start: number;
+  end: number;
+  activities: ActivityEntry[];
+  summary: {
+    activitiesCount: number;
+    totalDuration: number;
+    averageDuration: number;
+  }
+}
+
 const STORAGE_PATH = 'activity_history.json';
+const RUNS_PATH = 'runs.json';
 
 export const useActivityStore = defineStore('activity', {
   state: () => ({
     history: [] as ActivityEntry[],
     current: null as ActivityEntry | null,
+    runs: [] as RunEntry[],
+    trackingInterval: 0 as number
   }),
   actions: {
     /**
@@ -51,6 +66,39 @@ export const useActivityStore = defineStore('activity', {
       } catch (error) {
         console.error('Erreur lors de la sauvegarde de l\'historique:', error);
       }
+    },
+
+    async saveRuns() {
+      try {
+        await mkdir("", { baseDir: BaseDirectory.AppData, recursive: true });
+        const data = JSON.stringify(this.runs);
+        const buf = new TextEncoder().encode(data);
+        const file = await open(RUNS_PATH, { write: true, create: true, baseDir: BaseDirectory.AppData });
+        await file.write(buf);
+        await file.close();
+      } catch (error) {
+        console.error('Erreur lors de la sauvegarde des runs:', error);
+      }
+    },
+
+    initPersistentTracking() {
+      if (!this.trackingInterval) {
+        this.trackingInterval = setInterval(() => {
+          this.checkFocusedWindow();
+        }, 1000);
+      }
+    },
+
+    stopPersistentTracking() {
+      if (this.trackingInterval) {
+        clearInterval(this.trackingInterval);
+        this.trackingInterval = 0;
+      }
+    },
+
+    recordRun(runData: RunEntry) {
+      this.runs.push(runData);
+      this.saveRuns();
     },
 
     /**

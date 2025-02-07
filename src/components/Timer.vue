@@ -77,6 +77,8 @@
   import { ref, computed, onUnmounted } from 'vue';
   import DurationSelector from './DurationSelector.vue';
   
+  const emit = defineEmits(['finish']);
+  
   // Nombre de secondes sélectionnées (5 minutes par défaut)
   const totalSeconds = ref(300);
   
@@ -127,6 +129,10 @@
     timerInterval = setInterval(() => {
       if (remaining.value > 0) {
         remaining.value--;
+        if (remaining.value === 0) {
+          stopTimer();
+          emit('finish');
+        }
       } else {
         stopTimer();
       }
@@ -257,4 +263,3 @@
     background: #616161;
   }
 </style>
-  

@@ -24,14 +24,14 @@
       <!-- Pagination -->
       <div class="pagination">
         <button 
-          :disabled="currentPage === totalPages " 
+          :disabled="currentPage === 1" 
           @click="prevPage"
         >
-          {{$t("previous")}}
+          {{ $t("previous") }}
         </button>
-        <span>Page {{ 1+totalPages-currentPage }} {{$t("on")}} {{ totalPages }}</span>
+        <span>Page {{ currentPage }} {{ $t("of") }} {{ totalPages }}</span>
         <button 
-          :disabled="currentPage === 1" 
+          :disabled="currentPage === totalPages" 
           @click="nextPage"
         >
           {{ $t("next") }}
@@ -42,35 +42,37 @@
   
   <script setup lang="ts">
   import { computed, ref } from 'vue';
-  import { useActivityStore } from '../stores/activity';
+
+  interface ActivityEntry {
+    name: string;
+    title: string;
+    start: number;
+    end: number | null;
+  }
   
-  const activityStore = useActivityStore();
+  const props = defineProps<{
+    entries: ActivityEntry[]
+  }>();
   
-  // Récupération de l'historique depuis le store. L'interpolation moustache empêche l'injection XSS.
-  const history = computed(() => activityStore.history);
+  // Use the provided entries prop
+  const history = computed(() => props.entries || []);
   
   // Pagination
   const itemsPerPage = 10;
-  
+  const currentPage = ref(1);
   const totalPages = computed(() => Math.ceil(history.value.length / itemsPerPage));
-  const currentPage = ref(totalPages.value);
-
   const paginatedHistory = computed(() => {
     const start = (currentPage.value - 1) * itemsPerPage;
-    const end = (currentPage.value) * itemsPerPage;
+    const end = currentPage.value * itemsPerPage;
     return history.value.slice(start, end);
   });
   
   function prevPage() {
-    if (currentPage.value < totalPages.value) {
-      currentPage.value++;
-    }
+    if (currentPage.value > 1) currentPage.value--;
   }
   
   function nextPage() {
-    if (currentPage.value > 1) {
-      currentPage.value--;
-    }
+    if (currentPage.value < totalPages.value) currentPage.value++;
   }
   
   function formatTime(timestamp: number): string {
@@ -145,4 +147,3 @@
     background-color: #0056b3;
   }
   </style>
-  

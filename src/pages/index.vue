@@ -4,6 +4,7 @@
 
 <template>
   <main class="container">
-    <ActivityTracker />
+    <a href="/run" class="btn">Run</a>
+    <a href="/activitytracker" class="btn">Tracker</a>
   </main>
 </template>
