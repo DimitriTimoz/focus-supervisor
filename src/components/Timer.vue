@@ -109,7 +109,7 @@
   const circumference = 2 * Math.PI * circleRadius;
   const progressWidth = computed(() => {
     if (initialTime.value === 0) return 0;
-    return (remaining.value / initialTime.value) * 100;
+    return (remaining.value / (endTime.value - initialTime.value)) * 100;
   });
   const strokeDashoffset = computed(() => {
     return circumference - (progressWidth.value / 100) * circumference;
