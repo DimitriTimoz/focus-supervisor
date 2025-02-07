@@ -15,6 +15,7 @@ import {
   LinearScale,
   TimeScale
 } from 'chart.js';
+import Timer from './Timer.vue';
 
 ChartJS.register(
   Title,
@@ -260,7 +261,6 @@ onUnmounted(() => {
       <p class="mt-4 text-gray-600 animate-slideIn">{{ t('loading_dashboard') }}</p>
     </div>
   </div>
-
   <div v-else class="min-h-screen bg-gray-50">
     <!-- Sticky Animated Header -->
     <header class="sticky top-0 z-20 bg-white shadow py-4 border-b border-gray-200 animate-slideDown">
@@ -279,6 +279,7 @@ onUnmounted(() => {
         </select>
       </div>
     </header>
+    <Timer />
 
     <main class="max-w-7xl mx-auto py-8 px-4 space-y-10">
       <!-- Date Filter -->
