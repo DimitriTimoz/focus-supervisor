@@ -158,6 +158,17 @@ export const useActivityStore = defineStore('activity', {
       }
     },
 
+
+    endActivity() {
+      if (this.current) {
+        this.current.end = Date.now();
+        this.history.push({ ...this.current });
+        this.current = null;
+        this.saveHistory();
+        this.current = null;
+      }
+    },
+
     /**
      * Vérifie la fenêtre active et met à jour l'historique en conséquence.
      */
@@ -168,8 +179,8 @@ export const useActivityStore = defineStore('activity', {
         const now = Date.now();
 
         // Aucun nom de fenêtre, on réinitialise l'activité actuelle.
-        if (!name) {
-          this.current = null;
+        if (!name || this.lastChange > 1000*30) {
+          this.endActivity();
           return;
         }
 
@@ -184,15 +195,7 @@ export const useActivityStore = defineStore('activity', {
 
         this.lastChange = now;
 
-        // Fin de l'activité courante et sauvegarde dans l'historique.
-        this.current.end = now;
-        this.history.push({ ...this.current });
-
-        // Création d'une nouvelle activité.
-        this.current = { name, title, start: now, end: null };
-
-        // Sauvegarde l'historique mis à jour.
-        await this.saveHistory();
+        this.endActivity();
       } catch (error) {
         console.error('Erreur lors de la récupération de la fenêtre active:', error);
       }
