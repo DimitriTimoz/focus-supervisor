@@ -5,19 +5,7 @@
   </div>
 
   <div class="min-h-screen flex flex-col items-center justify-center p-6">
-    <!-- Section : Filtrer l'historique persistant -->
-    <section class="w-full max-w-5xl p-6 bg-white rounded shadow mb-6">
-      <h2 class="text-xl font-bold mb-4">Historique des runs persistants</h2>
-      <ActivityDateFilter :currentFilter="runsDateFilter" @update:filter="runsDateFilter = $event" />
-      <ul class="mt-4">
-        <li v-for="run in filteredRunHistoryList" :key="run.date" class="border-b py-2">
-          Date: {{ new Date(run.date).toLocaleString() }} - 
-          Durée: {{ ((run.end - run.start)/1000).toFixed(0) }} s - 
-          Activités: {{ run.summary.activitiesCount }}
-        </li>
-      </ul>
-    </section>
-
+    <h2 class="text-xl font-bold mb-4">Historique des runs persistants</h2>
     <!-- Section: Sélection et détails du run -->
     <section class="w-full max-w-5xl p-6 bg-white rounded shadow mb-6">
       <h2 class="text-xl font-bold mb-4">Sélectionnez un run pour voir ses détails</h2>
@@ -31,7 +19,7 @@
     </section>
 
     <!-- Section: Affichage des stats uniquement si le timer est terminé -->
-    <div v-if="!runStarted && displayedRun" class="w-full max-w-5xl p-6 bg-white rounded shadow">
+    <div v-if="displayedRun" class="w-full max-w-5xl p-6 bg-white rounded shadow">
       <ActivityStats 
         :totalTrackedTime="displayedRun.summary.totalDuration" 
         :totalActivities="displayedRun.summary.activitiesCount" 
@@ -259,12 +247,7 @@ const selectedRunChartData = computed(() => {
 
 // Propriété "displayedRun" : si le timer vient de finir, on affiche le dernier run enregistré, sinon celui sélectionné
 const displayedRun = computed(() => {
-  if (selectedRunDate.value) {
-    return selectedRun.value;
-  } else if (runFinished.value && activityStore.runs.length) {
-    return activityStore.runs[activityStore.runs.length - 1];
-  }
-  return null;
+  return selectedRun.value || (activityStore.runs.length ? activityStore.runs[activityStore.runs.length - 1] : null);
 });
 
 // Calcul des données graphiques à partir du run affiché
