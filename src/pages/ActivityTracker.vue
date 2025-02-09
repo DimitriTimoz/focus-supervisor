@@ -17,11 +17,16 @@
         />
       </section>
       <section>
-        <ActivityCharts :barData="barData" :barOptions="barOptions" :chartData="chartData" />
+        <ActivityCharts 
+          :barData="barData" 
+          :barOptions="barOptions" 
+          :chartData="chartData" 
+          :key="dateFilter" 
+        />
       </section>
       <section>
-        <!-- Pass full history to ActivityHistory -->
-        <ActivityHistory :entries="activityStore.history" />
+        <!-- Pass filtered history to ActivityHistory -->
+        <ActivityHistory :entries="filteredHistory" />
       </section>
     </main>
   </div>
